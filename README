@@ -1,0 +1,18 @@
+                        -----------------------
+                        Apache::Gestinanna 0.01
+                        -----------------------
+
+This module manages the Apache request cycle for the Gestinanna 
+Application Framework.  This package also includes an AxKit content 
+provider.
+
+The Apache::Gestinanna documentation contains an example httpd.conf 
+configuration as well as a resource file configuration.  Both of these 
+are required for the framework to find its configuration and content 
+resources.
+
+The actual framework is in the Gestinanna package which is a pre-
+requisite for this package.
+
+THIS CODE IS PRE-ALPHA.  Everything is subject to change.  There are 
+bugs.

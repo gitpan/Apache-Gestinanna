@@ -1,0 +1,10 @@
+MANIFEST			This list of files
+Makefile.PL
+README
+lib/Apache/AxKit/Provider/Gestinanna.pm
+lib/Apache/Gestinanna.pm
+t/SMOKE
+t/SMOKE.PL
+t/TEST
+t/TEST.PL
+t/htdocs/index.html

@@ -1,0 +1,20 @@
+#!/usr/local/bin/perl
+# WARNING: this file is generated, do not edit
+# 01: /usr/local/lib/perl5/site_perl/5.8.0/Apache/TestConfig.pm:737
+# 02: /usr/local/lib/perl5/site_perl/5.8.0/Apache/TestConfig.pm:814
+# 03: /usr/local/lib/perl5/site_perl/5.8.0/Apache/TestMM.pm:92
+# 04: Makefile.PL:40
+
+BEGIN { eval { require blib; } }
+#!perl
+
+use strict;
+use warnings FATAL => 'all';
+
+use FindBin;
+use lib map "$FindBin::Bin/$_",
+        qw(../Apache-Test/lib ../lib ../../lib);
+
+
+use Apache::TestSmokePerl ();
+Apache::TestSmokePerl->new(@ARGV)->run;
