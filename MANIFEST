@@ -3,6 +3,9 @@ Makefile.PL
 README
 lib/Apache/AxKit/Provider/Gestinanna.pm
 lib/Apache/Gestinanna.pm
+stylesheets/final.xsl
+stylesheets/style.css
+stylesheets/usableforms.js
 t/SMOKE
 t/SMOKE.PL
 t/TEST

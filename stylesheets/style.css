@@ -1,0 +1,350 @@
+/* Thanks to http://bluerobot.com/web/layouts/
+   for the initial CSS from which this is derived.
+ */
+
+body {
+        margin:0px 10px 10px 10px;
+        background-color: #ffffff;
+        text-align: center;
+        #min-width: 760px;
+        min-width: 670px;
+        width: 670px;
+        #font: 9pt verdana, arial, helvetica, sans-serif;
+        #background-color:white;
+        #background-image: url(/stylesheets/bg.png);
+        #background-attachment: fixed;
+
+        }
+h1, .content-title {
+        margin:0px 0px 15px 0px;
+        padding:0px;
+        font-size:20pt;
+        line-height:20pt;
+        font-weight:900;
+        color:#aa0400;
+        border-bottom: 1px solid #c08080;
+        }
+
+.content-title {
+}
+
+.toc {
+#        color:#09c; 
+        font-size:11px;
+        text-decoration:none;
+        font-weight:600;
+        font-family:verdana, arial, helvetica, sans-serif;
+        margin: 0px 0px 4px 0px;
+}
+    
+p {
+        /* font:10pt verdana, arial, helvetica, sans-serif; 
+        font-family: verdana, arial, helvetica, sans-serif; */
+        margin:0px 0px 16px 0px;
+        padding:0px;
+        }
+.content>p {margin:0px;}
+/* p:first-line { color:#000; } */
+/* p+p:first-line { color:#333; } */
+/* .content>p+p {text-indent:30px;} */
+.content>p+p {text-indent:2.5em;}
+
+.title {
+#        margin:0px 10px 10px 10px;
+        #width: 760px;
+        padding: 0px; # 0px 10px 0px;
+        background-color: #990100;
+        margin: 0px;
+        }
+
+.content {
+        /* margin:0px 210px 50px 10px; */
+        text-align: left;
+        background: white;
+        border: 1px solid white;
+        #margin:0px 10px 10px 10px;
+        #min-width: 760px;
+        #background-color: #958E4D;
+        background-color: white;
+	border: 1px solid #958E4D;
+    border: 1px solid #c08080;
+    margin: 0px 0px 0px 0px;
+        }
+
+.navigation { }
+
+div.head {
+        /* position:absolute; */
+        #clear: both;
+        #float: right;
+        #margin: 10px 20px 20px 20px;
+        #margin: 0px 0px 20px 20px;
+        /* top:60px;
+        right:20px; */
+        text-align: right;
+        #width:172px;
+        #padding:10px;
+        padding: 0px;
+        margin: 0px;
+        font-size: x-small;
+        #background-color:#E1DAC1;
+        background-color: #990100;
+        #border:1px solid #990100;
+        #line-height:17px;
+/* Again, the ugly brilliant hack. */
+        voice-family: "\"}\"";
+        voice-family:inherit;
+        #width:150px;
+        }
+/* Again, "be nice to Opera 5". */
+body>.head { #width:150px;
+}
+
+input.head {
+       font-size: xx-small;
+}
+
+table.full-borderless {
+    border: 0px;
+    width: 100%;
+    margin: 0px;
+}
+table.borderless {
+    border: 0px;
+    margin: 0px;
+}
+
+.tabs {
+    text-align: left;
+    border: 1px solid #c08080;
+    margin: 10px 0px 0px 0px;
+}
+
+.tab-selected {
+    border: 1px solid #c08080;
+}
+
+.tab {
+    border: 1px solid #c08080;
+}
+
+div.important {
+    border: 1px solid darkred;
+    background-color: pink;
+    margin: 10px;
+}
+
+div.important > h3.title {
+    border-right: 1px solid darkred;
+    border-bottom: 1px solid darkred;
+    background-color: white;
+    margin-top: 0px;
+    text-align: left;
+}
+
+.container {
+    #border: 1px solid #c08080;
+    margin: 5px 1px 1px 1px;
+    padding: 1px;
+}
+
+.head > .head-default > .container {
+    border: 0px;
+    margin: 0px;
+    padding: 0px;
+    color: white;
+}
+
+.head > .head-default > .container > .container-content > p {
+    display: inline;
+}
+.head > .head-default > .container > .container-content > form {
+    display: inline;
+}
+
+.container-title {
+        margin:0px 0px 10px 0px;
+        padding:17px 0px 0px 0px;
+        /* For IE5/Win's benefit height = [correct height] + [top padding] + [top and bottom border widths] */
+        height:33px; /* 14px + 17px + 2px = 33px */
+        border-style:solid;
+        border-color:black;
+        border-width:0px 0px 1px 0px; /* top and bottom borders: 1px; left and right borders: 0px */
+        line-height:11px;
+        background-color:#eee;
+        font-weight: bold;
+        float: left;
+         
+/* Here is the ugly brilliant hack that protects IE5/Win from its own stupidity.
+Thanks to Tantek Celik for the hack and to Eric Costello for publicizing it.
+IE5/Win incorrectly parses the "\"}"" value, prematurely closing the style
+declaration. The incorrect IE5/Win value is above, while the correct value is
+below. See http://glish.com/css/hacks.asp for details. */
+        voice-family: "\"}\"";
+        voice-family:inherit;
+        height:14px; /* the correct height */
+        }
+
+.container-navigation {
+        margin:0px 0px 10px 0px;
+        padding:17px 0px 0px 0px;
+        /* For IE5/Win's benefit height = [correct height] + [top padding] + [top and bottom border widths] */
+        height:33px; /* 14px + 17px + 2px = 33px */
+        border-style:solid;
+        border-color:black;
+        border-width:0px 0px 1px 0px; /* top and bottom borders: 1px; left and right borders: 0px */
+        line-height:11px;
+        background-color:#eee;
+        font-weight: bold;
+        float: right;
+
+/* Here is the ugly brilliant hack that protects IE5/Win from its own stupidity.
+Thanks to Tantek Celik for the hack and to Eric Costello for publicizing it.
+IE5/Win incorrectly parses the "\"}"" value, prematurely closing the style
+declaration. The incorrect IE5/Win value is above, while the correct value is
+below. See http://glish.com/css/hacks.asp for details. */
+        voice-family: "\"}\"";
+        voice-family:inherit;
+        height:14px; /* the correct height */
+        }
+
+
+.container-content {
+        #clear: both;
+}
+
+.foot {
+    text-align: left;
+}
+
+.group-caption {
+    text-align: right;
+}
+
+.row-diff-unchanged { 
+    #white-space: pre; font-family: monospace;
+    font-family: monospace;
+}
+
+.row-diff-changed {
+    #white-space: pre; font-family: monospace;
+    font-family: monospace;
+    background-color: #ffff77;
+}
+
+.row-diff-left {
+    #white-space: pre; font-family: monospace;
+    font-family: monospace;
+    background-color: #aaffaa;
+    #color: white;
+}
+
+.row-diff-right {
+    #white-space: pre; font-family: monospace;
+    font-family: monospace;
+    background-color: #ffaaaa;
+    #color: blue;
+}
+
+.row-diff-different {
+    #white-space: pre; font-family: monospace;
+    font-family: monospace;
+    background-color: #aaffaa;
+    #color: blue;
+}
+
+.row-diff-conflict {
+    #white-space: pre; font-family: monospace;
+    font-family: monospace;
+    background-color: #ffaaaa;
+    #color: blue;
+}
+
+dl.variablelist > dt {
+    font-weight: bold;
+}
+
+.form-entry-required-marker {
+    color: red;
+}
+
+.form-entry-missing {
+    font-weight: bold;
+}
+
+.form-body {
+#    border: 1px solid blue;
+    border: none;
+#    display: inline-table;
+#    text-align: center;
+    #margin: 0px 0px 0px 10px;
+}
+
+.form-body > fieldset {
+#    border: none;
+}
+
+.form-element {
+    border: none;
+#    display: block;
+    #display: table-row;
+    #text-align: left;
+}
+
+.form-element-label {
+    #display: table-column;
+    #text-align: right;
+}
+
+.form-element > input {
+    #display: table-column;
+    #text-align: left;
+}
+
+.form-element > select {
+    #display: table-column;
+    #text-align: left;
+}
+
+fieldset.form-selection {
+    border: auto;
+    margin: 0px 0px 0px 15px;
+    #display: inline-table;
+}
+
+fieldset > .form-body {
+    #display: inline-table;
+}
+
+.form-selection-option {
+    display: block;
+    margin-left: 1em;
+}
+
+span.form-element + span.form-element {
+    display: block;
+}
+
+span.form-selection-option + span.form-element {
+    display: block;
+}
+
+
+span.form-disabled > span.form-element > input {
+    display: none;
+    color: #ccc;
+}
+
+span.form-disabled > span.form-element > select {
+    display: none;
+    color: #ccc;
+}
+
+span.form-disabled > span.form-selection-option {
+    display: none;
+    color: #ccc;
+}
+
+
+span.form-enabled {
+}

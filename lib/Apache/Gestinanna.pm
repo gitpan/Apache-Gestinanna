@@ -10,7 +10,7 @@ use Gestinanna::Schema;
 
 use Apache::AxKit::Provider::Gestinanna;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use XML::Simple;
 

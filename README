@@ -1,5 +1,5 @@
                         -----------------------
-                        Apache::Gestinanna 0.01
+                        Apache::Gestinanna 0.02
                         -----------------------
 
 This module manages the Apache request cycle for the Gestinanna 
@@ -14,5 +14,9 @@ resources.
 The actual framework is in the Gestinanna package which is a pre-
 requisite for this package.
 
-THIS CODE IS PRE-ALPHA.  Everything is subject to change.  There are 
-bugs.
+You will also need to put the files in stylesheets/ into a directory 
+under the document root.  The final.xsl xslt expects these in 
+http://site.name/stylesheets/, so you may need to edit final.xslt if 
+you want to put them somewhere else.  This should change evenetually.
+
+THIS CODE IS ALPHA.  Everything is subject to change.  There are bugs.
