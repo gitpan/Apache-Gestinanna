@@ -1,4 +1,4 @@
-# $Id: Gestinanna.pm,v 1.1 2004/02/23 21:53:56 jgsmith Exp $
+# $Id: Gestinanna.pm,v 1.4 2004/07/26 18:51:30 jgsmith Exp $
 
 package Apache::AxKit::Provider::Gestinanna;
 
@@ -29,6 +29,7 @@ use Storable ();
 sub new {
     my $class = shift;
     my $apache = shift;
+    #warn "$class -> new(): ", Data::Dumper -> Dump([@_]);
     #my $self = bless { apache => $apache }, $class;
     my $self = bless { apache => Gestinanna::Request -> new($apache) }, $class;
     #warn "Created $self with $apache: $$self{apache}\n";
@@ -126,19 +127,40 @@ sub init {
 #    $self->{data} = $_[0];
 #    $self->{styles} = $_[1];
 
+    #warn "$self -> init: ", Data::Dumper -> Dump([@_]);
+
     unless(UNIVERSAL::isa($self -> {apache}, 'Gestinanna::Request')) {
         $self -> {apache} = Gestinanna::Request -> new($self -> {apache});
     }
 
     my $R = $self -> {apache};
 
-    if(defined $R -> {_decline}) {
-        #warn "decline: $$R{_decline}\n";
-        $self -> {_decline} = $R -> {_decline};
-        return;
+    if(@_) {
+        # return what is pointed to by $_[1];
+        my %args = @_;
+        if(defined $args{uri}) {
+            # uri should be something like xslt:/sys/final
+            my($type, $path) = split(/:/, $args{uri}, 2);
+            my $object = $R -> get_content_provider(
+                type => $type,
+                filename => $path,
+            );
+            #warn "Found $object for type $type and path $path\n";
+            $self -> {_process_dom} = 0;
+            $self -> {_content_provider} = [ $object ];
+        }
     }
+    else {
 
-    $self -> {_content_provider} = $R -> embeddings or return;
+        if(defined $R -> {_decline}) {
+            #warn "decline: $$R{_decline}\n";
+            $self -> {_decline} = $R -> {_decline};
+            return;
+        }
+
+        $self -> {_content_provider} = $R -> embeddings;
+        $self -> {_process_dom} = 1;
+    }
 }
 
 sub error { shift -> {apache} -> error_provider(@_); } # for now
@@ -175,7 +197,7 @@ sub mtime {
     if(@{$self -> {_content_provider}||[]}) {
         my $mtime;
         foreach my $cp (@{$self -> {_content_provider}||[]}) {
-            $mtime = $cp -> mtime if $mtime < $cp -> mtime;
+            $mtime = $cp -> mtime if defined $mtime && defined $cp && defined $cp -> mtime && $mtime < $cp -> mtime;
         }
         return $mtime if defined $mtime;
     }
@@ -189,6 +211,7 @@ sub get_fh {
 
 sub get_strref {
     my $self = shift;
+    #warn "Returning strref for $self\n";
     return $self->{data} if defined $self -> {data};
 
 
@@ -206,78 +229,113 @@ sub get_strref {
 sub get_dom {
     my $self = shift;
 
+    #warn "Returning dom for $self\n";
     return $self -> {dom} if defined $self -> {dom};
+
+    #warn "We have a content provider: $$self{_content_provider}\n";
 
     return unless $self -> {_content_provider};
 
-    my $R = $self -> {apache};
 
     # process embeddings
-    my $rootdom;
-    my $root;
-    if(@{$self -> {_content_provider}||[]}) {
-        my $cp = shift @{$self -> {_content_provider}};
-        #warn "Root cp: $$cp{type}:$$cp{filename}\n";
-        $rootdom = $cp -> dom;
-        $rootdom -> setEncoding('utf8');
-        $root = $rootdom -> documentElement();
-        $root -> setNodeName('page');
+    if($self -> {_process_dom}) {
+        my $R = $self -> {apache};
+        my $rootdom;
+        my $root;
+        if(@{$self -> {_content_provider}||[]}) {
+            my $cp = shift @{$self -> {_content_provider}};
+            #warn "Root cp: $$cp{type}:$$cp{filename}\n";
+            $rootdom = $cp -> dom;
+            $rootdom -> setEncoding('utf8');
+            $root = $rootdom -> documentElement();
+            $root -> setNodeName('page');
 
-        $root -> setAttribute('redirect-url' => $R -> config -> {'redirect-url'})
-            if $R -> {_session_id_location} eq 'url';
-        $root -> setAttribute('session-id' => $R -> {session} -> {_session_id});
+            $root -> setAttribute('redirect-url' => $R -> config -> {'redirect-url'})
+                if $R -> {_session_id_location} eq 'url';
+            $root -> setAttribute('session-id' => $R -> {session} -> {_session_id});
+            $self -> {dom} = $rootdom;
+        }
 
-        $self -> {dom} = $rootdom;
-    }
+        while(@{$self -> {_content_provider}||[]}) {
+            my $cp = shift @{$self -> {_content_provider}};
+            #warn "  next cp: $$cp{type}:$$cp{filename}\n";
+            my $dom = $cp -> dom;
+            my $domroot = $dom -> documentElement();
+            $rootdom -> adoptNode($domroot);
+            $domroot -> setAttribute(id => '_embedded');
+            my $boxes = $rootdom -> findnodes('//container[@id = "_embedded" and not(.//container[@id = "_embedded"])]');
+            #warn "Got " . scalar($boxes -> get_nodelist) . " boxes\n";
+            last unless $boxes -> get_nodelist; # if no embedding, stop since there's no use continuing
+            #my @domchildren = $domroot -> childNodes;
+            foreach my $box ($boxes -> get_nodelist) {
+                $box -> replaceNode( $domroot );
+            }
+        }
 
-    while(@{$self -> {_content_provider}||[]}) {
-        my $cp = shift @{$self -> {_content_provider}};
-        #warn "  next cp: $$cp{type}:$$cp{filename}\n";
-        my $dom = $cp -> dom;
-        my $domroot = $dom -> documentElement();
-        $rootdom -> adoptNode($domroot);
-        $domroot -> setAttribute(id => '_embedded');
-        my $boxes = $rootdom -> findnodes('//container[@id = "_embedded" and not(.//container[@id = "_embedded"])]');
-        #warn "Got " . scalar($boxes -> get_nodelist) . " boxes\n";
-        last unless $boxes -> get_nodelist; # if no embedding, stop since there's no use continuing
-        #my @domchildren = $domroot -> childNodes;
-        foreach my $box ($boxes -> get_nodelist) {
-            $box -> replaceNode( $domroot );
+        my $ctx_ids = $rootdom -> findnodes('//stored[@id = "_context_id"]');
+
+        # make sure the session saves
+        $R -> {session} -> {mtime} = time() if $ctx_ids -> get_nodelist;
+
+        foreach my $ctx_node ($ctx_ids -> get_nodelist) {
+            #my($vn) = ($ctx -> findnodes('value'));
+            my $ctx = $ctx_node -> textContent();
+            next unless defined $ctx && $ctx ne '';
+            my $ancestors = $ctx_node -> findnodes(q{
+                ancestor::option[@id != '']
+                | ancestor::selection[@id != '']
+                | ancestor::group[@id != '']
+                | ancestor::form[@id != '']
+                | ancestor::container[@id != '']
+            });
+            my @ids = grep { defined } map { $_ -> getAttribute('id') } $ancestors -> get_nodelist;
+            my $id = join(".", @ids);
+            #warn "$id._context_id => $ctx\n";
+            if($id =~ m{^_embedded(\._embedded)*$}) {
+                $R -> {session} -> {contexts} -> {$id} = {
+                    uri => Apache -> request -> uri,
+                    ctx => $ctx,
+                };
+                #warn "embedded context: uri: " . Apache -> request -> uri . " ctx: $ctx\n";
+            }
+            else {
+                $R -> {session} -> {contexts} -> {$id} = $ctx;
+            }
+        }
+    
+        my $links = $rootdom -> findnodes('//link');
+        my %urls;
+    
+        foreach my $link_node ($links -> get_nodelist) {
+            # translate {type}:{id} urls to real urls
+            # if it doesn't map to a url, then we need a magic url to return
+            # session id management is in the final.xsl, not here - just map to the url
+            my $link = $link_node -> getAttribute('url');
+            #warn "Link: $link\n";
+            next unless $link =~ m{^[^:]+:/[^/]}; # don't translate unless of the form <type>:<id> (with <id> starting with /)
+            if(!exists($urls{$link})) {
+                my($type, $id) = split(/:/, $link, 2);
+                # we want to link to the url that is closest to the current url
+                my $t = $R -> get_url(type => $type, filename => $id);
+                $urls{$link} = $t if defined $t;
+            }
+            my $target;
+            if(!defined($urls{$link})) {
+                # dummy link to page explaining broken link
+                $target = $R -> get_url(type => 'document', filename => '/sys/unknown_object');
+            }
+            else {
+                $target = $urls{$link};
+            }
+            #warn "translating [$link] to [$target]\n";
+            $link_node -> setAttribute(url => $target) if defined $target;
         }
     }
-
-    my $ctx_ids = $rootdom -> findnodes('//stored[@id = "_context_id"]');
-
-    # make sure the session saves
-    $R -> {session} -> {mtime} = time() if $ctx_ids -> get_nodelist;
-
-    foreach my $ctx_node ($ctx_ids -> get_nodelist) {
-        #my($vn) = ($ctx -> findnodes('value'));
-        my $ctx = $ctx_node -> textContent();
-        next unless defined $ctx && $ctx ne '';
-        my $ancestors = $ctx_node -> findnodes(q{
-            ancestor::option[@id != '']
-            | ancestor::selection[@id != '']
-            | ancestor::group[@id != '']
-            | ancestor::form[@id != '']
-            | ancestor::container[@id != '']
-        });
-        my @ids = grep { defined } map { $_ -> getAttribute('id') } $ancestors -> get_nodelist;
-        my $id = join(".", @ids);
-        #warn "$id._context_id => $ctx\n";
-        if($id =~ m{^_embedded(\._embedded)*$}) {
-            $R -> {session} -> {contexts} -> {$id} = {
-                uri => Apache -> request -> uri,
-                ctx => $ctx,
-            };
-            #warn "embedded context: uri: " . Apache -> request -> uri . " ctx: $ctx\n";
-        }
-        else {
-            $R -> {session} -> {contexts} -> {$id} = $ctx;
-        }
+    elsif(@{$self -> {_content_provider}||[]}) {
+        #warn "_content_provider: [", join("], [", @{$self -> {_content_provider}||[]}), "]\n";
+        #warn "there are ", scalar(@{$self -> {_content_provider}||[]}), " _content_providers\n";
+        $self -> {dom} = $self -> {_content_provider} -> [0] -> dom;
     }
-
-    delete $self -> {_content_provider};
 
     return $self -> {dom};
 }

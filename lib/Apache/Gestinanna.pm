@@ -7,10 +7,11 @@ use DBI;
 
 use Gestinanna::POF;
 use Gestinanna::Schema;
+use Gestinanna::SiteConfiguration;
 
 use Apache::AxKit::Provider::Gestinanna;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use XML::Simple;
 
@@ -23,8 +24,38 @@ if($ENV{MOD_PERL}) {
     }
 }
 
+sub new {
+    my $class = shift;
+
+    $class = ref $class || $class;
+    return bless { } => $class;
+}
+
 sub request {
     return Apache::Gestinanna::Request -> new;
+}
+
+sub GestinannaSite ($$$) {
+    my($cfg, $param, $site) = @_;
+
+    @{$cfg}{qw(resource schema site)} = split(/:/, $site);
+
+    warn "resouce:schena:site :: $$cfg{resource} : $$cfg{schema} : $$cfg{site}\n";
+    if($cfg -> {files}) {
+        read_config($cfg, $cfg->{files}->[0]);
+
+        Apache -> push_handlers(PerlChildInitHandler => sub {
+            $cfg -> {resources} = $cfg -> make_resources;
+        });
+    }
+
+    # Would love to be able to automatically add the following to the config
+#     SetHandler axkit
+
+#     AxContentProvider Apache::AxKit::Provider::Gestinanna
+#     AxStyleProvider   Apache::AxKit::Provider::Gestinanna
+#     AxAddDynamicProcessor Apache::Gestinanna::AxKitStyleProvider
+
 }
 
 sub GestinannaConf ($$$;*) {
@@ -39,10 +70,17 @@ sub GestinannaConf ($$$;*) {
            : $_
     } grep { defined $_ } ($file =~ m{"((?:\\"|[^"]+)*)"|([^"\s]+)}g);
 
-    my $config = { };
+    warn "GestinannaConf: Only parsing first file ($files[0])\n" if @files > 1;
+    $cfg -> {files} = \@files;
+}
+
+sub read_resource_config {
+    my($cfg, $file) = @_;
+
     my $xs = new XML::Simple(
         ContentKey => '-content',
         ForceArray => [qw(
+            pool
         )],
         GroupTags => {
             'tag-path' => 'tag',
@@ -55,25 +93,25 @@ sub GestinannaConf ($$$;*) {
         VarAttr => 'id',
     );
 
-    warn "GestinannaConf: Only parsing first file ($files[0])\n" if @files > 1;
 
-    $config = $xs -> XMLin($files[0]);
+    $cfg -> {resource_config} = $xs -> XMLin($file);
+}
 
-    $cfg -> {resource_config} = $config;
+sub read_config {
+    my($cfg, $file) = @_;
 
-    my ($schema, $site) = delete @{$cfg -> {resource_config}}{qw(schema site)};
+    $cfg -> read_resource_config($file);
+
+    #my ($schema, $site) = delete @{$cfg -> {resource_config}}{qw(schema site)};
+    my ($resource, $schema, $site) = @{$cfg}{qw(resource schema site)};
 
     #$cfg -> {prefork_resources} = $cfg -> make_resources('prefork_');
-
-    Apache -> push_handlers(PerlChildInitHandler => sub {
-        $cfg -> {resources} = $cfg -> make_resources;
-    });
 
     # load configuration from database
     #my $dbh = $cfg -> {prefork_resources} -> {prefork_dbi} -> get();
     my $dbh;
     foreach my $r (@{$cfg->{resource_config}->{pool}||[]}) {
-        if(defined $r->{dbi}) {
+        if(defined $r->{dbi} && $r -> {name} eq $resource) {
             eval { $dbh = DBI->connect(
                 $r -> {dbi} -> {datasource}, 
                 $r -> {dbi} -> {username}, 
@@ -85,8 +123,20 @@ sub GestinannaConf ($$$;*) {
             last unless $@;
             warn "$@\n";
         }
+        elsif(defined $r -> {alzabo} && $r -> {name} eq $resource) {   
+            eval { $dbh = DBI->connect(
+                $r -> {alzabo} -> {datasource},
+                $r -> {alzabo} -> {username},
+                $r -> {alzabo} -> {password},
+                {
+                    map { $_ => $r -> {alzabo} -> {$_} } grep { /^[A-Z]/ } keys %{$r -> {alzabo}}
+                },
+            ); };
+            $schema = $r -> {alzabo} -> {schema};
+            last unless $@;
+            warn "$@\n";
+        }
     }
-    
 
     eval { Gestinanna::Schema -> make_methods( name => $schema ); };
     warn "$@\n" if $@;  # might be errors if already done, but this can be useful for XSM
@@ -96,16 +146,62 @@ sub GestinannaConf ($$$;*) {
         dbh => $dbh
     );
 
-    my $site_data = $alzabo_schema -> table('Site') -> row_by_pk( pk => $site );
-    $config = $xs -> XMLin($site_data -> select('configuration') || "<configuration/>");
+    my $site_cfg = get_site_config($alzabo_schema, $site);
+
+    $site_cfg -> build_factory;
+
+#    my $site_data = $alzabo_schema -> table('Site') -> row_by_pk( pk => $site );
+#    my $config = $cfg -> parse_site_config($site_data);
+
+    #my $config = $cfg -> parse_site_config($site_data -> select('configuration') || "<configuration/>");
 
     $dbh -> disconnect;
 
-    $cfg -> {config} = $config;
-    $cfg -> {config} -> {schema} = $schema;
-    $cfg -> {config} -> {site} = $site;
+    $cfg -> {config} = $site_cfg;
+    $cfg -> {schema} = $schema;
+    $cfg -> {site} = $site;
+}
+
+sub get_site_config {
+    my($schema, $site) = @_;
+
+    my $site_data = $schema -> table('Site') -> row_by_pk( pk => $site );
+    if($site_data) {
+        my $parent_site = $site_data -> parent_site;
+
+        my $parent;
+        if($parent_site) {
+            $parent = get_site_config($schema, $parent_site);
+        }
+
+        my $s = Gestinanna::SiteConfiguration -> new(parent => $parent, site => $site);
+        $s -> parse_config($site_data -> configuration);
+        return $s;
+    }
+    return Gestinanna::SiteConfiguration -> new(site => $site);
+}
+
+sub parse_site_config {
+    my($self, $site_data) = @_;
+
+    my $parent_site = $site_data -> parent_site;
+    my $site;
+
+    if($parent_site) {
+        my $parent_data = $site_data -> table -> row_by_pk( pk => $parent_site );
+        my $parent = $self -> parse_site_config($parent_data);
+        $site = Gestinanna::SiteConfiguration -> new( parent => $parent, site => $site_data -> site );
+    }
+    else {
+        $site = Gestinanna::SiteConfiguration -> new( );
+    }
+    $site -> parse_config( $site_data -> select('configuration') );
+
+    # need to handle building the factory...
+    return $site;
 
     # pre-load classes
+    my $config = { };
     foreach my $t (qw(content-provider data-provider)) {
         foreach my $ct (keys %{$config -> {$t} || {}}) {
             my $class = $config -> {$t} -> {$ct} -> {'class'};
@@ -154,9 +250,9 @@ sub GestinannaConf ($$$;*) {
             if($c -> {'data-type'} eq 'alzabo') {
                 push @classes, 'Gestinanna::POF::Alzabo';
                 my $table = $c -> {'table'};
-                $code = <<1HERE1;
+                $code = <<EOF;
 use constant table => "\Q$table\E";
-1HERE1
+EOF
             }
             elsif($c -> {'data-type'} eq 'repository') {
                 #push @classes, 'Gestinanna::DataProvider::Repository';
@@ -195,8 +291,7 @@ use constant table => "\Q$table\E";
         }
     }
 
-    $config -> {'tag-path'} = [ $config -> {'tag-path'} ]
-        unless UNIVERSAL::isa($config -> {'tag-path'}, 'ARRAY');
+    return $config;
 }
 
 sub retrieve {
@@ -229,6 +324,20 @@ sub make_resources {
                     $r -> {dbi} -> {password},
                     {
                         map { $_ => $r -> {dbi} -> {$_} } grep { /^[A-Z]/ } keys %{$r -> {dbi}}
+                    },
+                )
+            ) );
+        }
+        elsif(defined $r->{alzabo}) {
+            require ResourcePool::Factory::Alzabo;
+            $lb -> add_pool( ResourcePool -> new(
+                ResourcePool::Factory::Alzabo->new(
+                    $r -> {alzabo} -> {schema},
+                    $r -> {alzabo} -> {datasource},
+                    $r -> {alzabo} -> {username},
+                    $r -> {alzabo} -> {password},
+                    {
+                        map { $_ => $r -> {alzabo} -> {$_} } grep { /^[A-Z]/ } keys %{$r -> {alzabo}}
                     },
                 )
             ) );
@@ -268,34 +377,24 @@ In httpd.conf:
 
  <VirtualHost *>
    ServerName xxx.yyy.com
-   PerlTransHandler 'sub { my $r = shift; my $uri = $r -> uri(); \
-                           if($uri =~ m{\\.xml$} || $uri =~ m{/$}) { \
-                               $r -> filename("/index.xml"); \
-                               return Apache::Constants::OK; \
-                           } \
-                           return Apache::Constants::DECLINED; \
-                     }'
    <Location "/">
-     GestinannaConf /usr/local/etc/apache/gst.xml
+     GestinannaConf etc/apache/gst.xml
+     GestinannaSite dbi:Gestinanna:1
 
      SetHandler axkit
      AxAddStyleMap text/xsl Apache::AxKit::Language::LibXSLT
      AxAddStyleMap application/x-xpathscript Apache::AxKit::Language::XPathScript
 
      AxContentProvider Apache::AxKit::Provider::Gestinanna
+     AxStyleProvider   Apache::AxKit::Provider::Gestinanna
+     
+     AxAddProcessor     text/xsl xslt:/theme/_default/final
+     #TODO: AxAddDynamicProcessor Apache::Gestinanna::AxKitStyleProvider
 
      AxHandleDirs On
   
-     AxAddPlugin Apache::AxKit::Plugin::Passthru
-
-     AxAddRootProcessor text/xsl /stylesheets/doc.xsl document
-     AxAddProcessor     text/xsl /stylesheets/final.xsl
 
      AxGzipOutput On
-   </Location>
-
-   <Location "/stylesheets/">
-     SetHandler default
    </Location>
 
    <Location "/images/">
@@ -305,12 +404,10 @@ In httpd.conf:
 
 In gst.xml:
 
- <resources
-   schema="Gestinanna"
-   site="1"
- >
+ <resources>
    <pool name="dbi">
-     <dbi datasource="dbi:mysql:SchemaName:localhost"
+     <alzabo datasource="dbi:mysql:SchemaName:localhost"
+          schema="SchemaName"
           username="username"
           password="password"
           PrintError="1"
@@ -322,6 +419,24 @@ In gst.xml:
 
 This module manages the Apache request cycle for the Gestinanna 
 Application Framework.
+
+=head1 Apache Directives
+
+=head2 GestinannaConf file
+
+This designates the file from which the resource configuration is 
+taken.  Each resource pool is named and consists of one or more 
+configurations that should point to the same resource (but perhaps on 
+different hosts).
+
+=head2 GestinannaSite  pool_name:schema:site_number
+
+This designates the site that is being served by the current 
+configuration.  This is a triplet consisting of the name of the 
+resource pool (which should be a DBI connection), the schema name (or 
+database name), and the site number.
+
+This allows multiple sites to share the same resource configuration.
 
 =head1 AUTHOR
 

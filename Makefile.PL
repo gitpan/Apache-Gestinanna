@@ -50,6 +50,11 @@ my @directives = (
        args_how     => 'RAW_ARGS',
        req_override => 'ACCESS_CONF',
      },
+     { name         => 'GestinannaSite',
+       errmsg       => 'site being configured (resource:schema:site)',
+       args_how     => 'TAKE1',
+       req_override => 'ACCESS_CONF',
+     },
 );
 
 command_table(\@directives);
@@ -67,10 +72,10 @@ WriteMakefile(
                     Apache::Session => 0,
                     Apache::Test => 1.00,
                     AxKit => 1.61,
-                    Gestinanna => 0,
-                    Gestinanna::POF => 0,
+                    Gestinanna => 0.02,
+                    Gestinanna::POF => 0.07,
                     ResourcePool => 1.01,
-                    ResourcePool::Factory::DBI => 1.01,
+                    ResourcePool::Factory::Alzabo => 1.01,
                     XML::Simple => 0,
                     XML::XPath => 1.13,
 		    mod_perl => 1.24,
